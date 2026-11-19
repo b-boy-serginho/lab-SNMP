@@ -33,5 +33,4 @@ Abrir `index.html` con doble clic en el navegador.
 2. **Root Directory:** `informe` · **Build Command:** (vacío) · **Publish Directory:** `.`
 
 ## Antes de publicar
-- Reemplazar `[Integrante 2]` en `index.html` por el nombre del compañero.
 - La captura del firewall (`img/05-firewall.png`) ya tiene ocultos los nombres de redes personales.
