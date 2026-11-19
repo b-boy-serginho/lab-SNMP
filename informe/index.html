@@ -1,0 +1,688 @@
+<!DOCTYPE html>
+<html lang="es">
+<head>
+<meta charset="UTF-8">
+<meta name="viewport" content="width=device-width, initial-scale=1">
+<title>Laboratorio Gestor SNMP — Redes 2</title>
+<meta name="description" content="Informe del Laboratorio Gestor SNMP: gestión de un router Maipu MP2804 y un switch Maipu SM3000 con iReasoning MIB Browser (GET, Walk, Poll, Traps y SET).">
+<link rel="preconnect" href="https://fonts.googleapis.com">
+<link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
+<link href="https://fonts.googleapis.com/css2?family=Inter:wght@400;500;600;700;800&family=JetBrains+Mono:wght@400;600&display=swap" rel="stylesheet">
+<style>
+:root{
+  /* tema claro: salvia + verde oliva */
+  --bg:#eef1e9; --bg-grad:linear-gradient(160deg,#e6eadf 0%,#f1f3ec 40%,#f7f8f4 100%);
+  --surface:#ffffff; --surface-2:#f4f6f0; --border:#e1e5da;
+  --text:#121511; --muted:#6a6f64; --accent:#4b7a12; --accent-2:#3c6210; --accent-soft:#ebf3dc;
+  --navy:#141613; --ok:#4b7a12; --ok-soft:#e7f1d6; --warn:#b05d10; --warn-soft:#fcefdc; --bad:#c24a3a; --bad-soft:#fbe7e3;
+  --code-bg:#161a15; --code-text:#e2e7dc;
+  --hero-bg:transparent; --hero-text:#121511; --hero-lead:#4f554a; --hero-chip:#e4e8dd; --hero-chip-border:#d6dbcd;
+  --hero-card:#ffffff; --hero-card-border:#e1e5da; --hero-label:#7a8073;
+  --radius:14px; --shadow:0 1px 2px rgba(20,24,16,.04),0 6px 20px rgba(20,24,16,.05);
+}
+@media (prefers-color-scheme: dark){
+  :root:not([data-theme="light"]){
+    --bg:#0d131c; --surface:#141c27; --surface-2:#1a2431; --border:#263243;
+    --text:#e6ecf4; --muted:#97a3b5; --accent:#2fb5c0; --accent-2:#5fd0d8; --accent-soft:#12303a;
+    --navy:#0a1220; --ok:#4cc488; --ok-soft:#123222; --warn:#f0b24a; --warn-soft:#33270f; --bad:#ff7a6b; --bad-soft:#3a1714;
+    --code-bg:#0a0f17; --shadow:none;
+    --bg-grad:none; --hero-bg:linear-gradient(135deg,#0b1a2e 0%,#0f2f44 55%,#0e5f67 100%); --hero-text:#fff; --hero-lead:#cfe3ea;
+    --hero-chip:rgba(255,255,255,.1); --hero-chip-border:rgba(255,255,255,.18); --hero-card:rgba(255,255,255,.07); --hero-card-border:rgba(255,255,255,.14); --hero-label:#9fc4cf;
+  }
+}
+:root[data-theme="dark"]{
+  --bg:#0d131c; --surface:#141c27; --surface-2:#1a2431; --border:#263243;
+  --text:#e6ecf4; --muted:#97a3b5; --accent:#2fb5c0; --accent-2:#5fd0d8; --accent-soft:#12303a;
+  --navy:#0a1220; --ok:#4cc488; --ok-soft:#123222; --warn:#f0b24a; --warn-soft:#33270f; --bad:#ff7a6b; --bad-soft:#3a1714;
+  --code-bg:#0a0f17; --shadow:none;
+  --bg-grad:none; --hero-bg:linear-gradient(135deg,#0b1a2e 0%,#0f2f44 55%,#0e5f67 100%); --hero-text:#fff; --hero-lead:#cfe3ea;
+  --hero-chip:rgba(255,255,255,.1); --hero-chip-border:rgba(255,255,255,.18); --hero-card:rgba(255,255,255,.07); --hero-card-border:rgba(255,255,255,.14); --hero-label:#9fc4cf;
+}
+*{box-sizing:border-box}
+html{scroll-behavior:smooth;scroll-padding-top:20px}
+body{margin:0;background:var(--bg);background-image:var(--bg-grad);background-attachment:fixed;color:var(--text);font:16px/1.65 Inter,system-ui,-apple-system,"Segoe UI",Roboto,sans-serif;-webkit-font-smoothing:antialiased}
+a{color:var(--accent)}
+code,pre,.mono{font-family:"JetBrains Mono",ui-monospace,Consolas,monospace}
+code{font-size:.88em;background:var(--surface-2);border:1px solid var(--border);padding:.08em .38em;border-radius:6px;overflow-wrap:anywhere}
+
+/* ---------- hero ---------- */
+.hero{background:var(--hero-bg);color:var(--hero-text);padding:56px 16px 64px}
+.hero-inner{max-width:1180px;margin:0 auto}
+.kicker{display:inline-flex;gap:8px;align-items:center;font-size:.8rem;font-weight:600;letter-spacing:.04em;background:var(--hero-chip);border:1px solid var(--hero-chip-border);padding:6px 12px;border-radius:999px}
+.kicker:before{content:"";width:8px;height:8px;border-radius:50%;background:var(--accent);box-shadow:0 0 0 3px var(--accent-soft)}
+.hero h1{font-size:clamp(2.1rem,5.4vw,3.6rem);line-height:1.05;margin:18px 0 14px;font-weight:800;letter-spacing:-.035em}
+.hero p.lead{font-size:1.12rem;max-width:760px;color:var(--hero-lead);margin:0 0 28px}
+.meta{display:grid;grid-template-columns:repeat(3,minmax(0,1fr));gap:0;max-width:1000px;background:var(--hero-card);border:1px solid var(--hero-card-border);border-radius:var(--radius);overflow:hidden;box-shadow:var(--shadow)}
+.meta div{padding:16px 20px;border-right:1px solid var(--hero-card-border);border-bottom:1px solid var(--hero-card-border);margin:0 -1px -1px 0}
+.meta span{display:block;font-size:.8rem;color:var(--hero-label);margin-bottom:4px}
+.meta strong{font-weight:600}
+
+/* ---------- layout ---------- */
+.layout{max-width:1180px;margin:0 auto;padding:0 16px;display:grid;grid-template-columns:240px minmax(0,1fr);gap:40px}
+nav.toc{position:sticky;top:20px;align-self:start;margin-top:-28px;background:var(--surface);border:1px solid var(--border);border-radius:var(--radius);padding:16px 10px;box-shadow:var(--shadow);max-height:calc(100vh - 40px);overflow:auto}
+nav.toc h2{font-size:.75rem;text-transform:uppercase;letter-spacing:.08em;color:var(--muted);margin:0 10px 8px}
+nav.toc a{display:block;padding:6px 10px;border-radius:8px;color:var(--text);text-decoration:none;font-size:.9rem;line-height:1.35}
+nav.toc a:hover{background:var(--surface-2)}
+nav.toc a.active{background:var(--accent-soft);color:var(--accent-2);font-weight:600}
+nav.toc .theme{margin:12px 10px 0;width:calc(100% - 20px);border:1px solid var(--navy);background:var(--navy);color:#fff;border-radius:10px;padding:8px;font:inherit;font-size:.82rem;font-weight:600;cursor:pointer}
+nav.toc .theme:hover{opacity:.9}
+main{padding:40px 0 80px;min-width:0}
+section{margin-bottom:64px}
+section > h2{font-size:1.65rem;letter-spacing:-.01em;margin:0 0 6px;display:flex;gap:12px;align-items:baseline}
+section > h2 .num{color:var(--accent);font-weight:800;font-size:1.1rem}
+section > .sub{color:var(--muted);margin:0 0 22px}
+h3{font-size:1.15rem;margin:34px 0 10px}
+p{margin:0 0 14px}
+
+/* ---------- components ---------- */
+.cards{display:grid;grid-template-columns:repeat(auto-fit,minmax(200px,1fr));gap:14px;margin:0 0 24px}
+.card{background:var(--surface);border:1px solid var(--border);border-radius:var(--radius);padding:18px;box-shadow:var(--shadow)}
+.card .step{font-size:.74rem;font-weight:700;text-transform:uppercase;letter-spacing:.07em;color:var(--muted)}
+.card h4{margin:6px 0 6px;font-size:1.02rem}
+.card p{margin:0;font-size:.9rem;color:var(--muted)}
+.badge{display:inline-flex;align-items:center;gap:6px;font-size:.76rem;font-weight:700;padding:3px 10px;border-radius:999px;background:var(--ok-soft);color:var(--ok)}
+.badge.warn{background:var(--warn-soft);color:var(--warn)}
+.badge.bad{background:var(--bad-soft);color:var(--bad)}
+.badge.info{background:var(--accent-soft);color:var(--accent-2)}
+
+.table-wrap{overflow-x:auto;border:1px solid var(--border);border-radius:var(--radius);background:var(--surface);margin:0 0 20px;box-shadow:var(--shadow)}
+table{border-collapse:collapse;width:100%;font-size:.9rem}
+th,td{text-align:left;padding:10px 14px;border-bottom:1px solid var(--border);vertical-align:top}
+th{background:var(--surface-2);font-size:.78rem;text-transform:uppercase;letter-spacing:.05em;color:var(--muted);font-weight:700;white-space:nowrap}
+tr:last-child td{border-bottom:0}
+td code{white-space:nowrap;overflow-wrap:normal}
+td.num{font-variant-numeric:tabular-nums;font-family:"JetBrains Mono",monospace;font-size:.85rem;white-space:nowrap}
+tr.hl td{background:var(--accent-soft)}
+
+pre{background:var(--code-bg);color:var(--code-text);border-radius:var(--radius);padding:16px 18px;overflow-x:auto;font-size:.84rem;line-height:1.6;margin:0 0 20px}
+pre .c{color:#7f8ea3} pre .k{color:#7fd6dd} pre .s{color:#f2c36b} pre .p{color:#9aa8bb}
+.code-title{font-size:.78rem;font-weight:700;text-transform:uppercase;letter-spacing:.06em;color:var(--muted);margin:0 0 6px}
+
+.callout{border-left:4px solid var(--accent);background:var(--accent-soft);padding:14px 18px;border-radius:0 var(--radius) var(--radius) 0;margin:0 0 20px}
+.callout.warn{border-color:var(--warn);background:var(--warn-soft)}
+.callout.ok{border-color:var(--ok);background:var(--ok-soft)}
+.callout strong:first-child{display:block;margin-bottom:4px}
+.callout p:last-child{margin:0}
+
+.grid-2{display:grid;grid-template-columns:repeat(2,minmax(0,1fr));gap:18px}
+.grid-3{display:grid;grid-template-columns:repeat(3,minmax(0,1fr));gap:16px}
+.grid-2>*,.grid-3>*{min-width:0}
+figure{margin:0 0 20px;background:var(--surface);border:1px solid var(--border);border-radius:var(--radius);overflow:hidden;box-shadow:var(--shadow)}
+figure button{all:unset;display:block;cursor:zoom-in;width:100%;background:var(--surface-2)}
+figure img{display:block;width:100%;height:auto}
+.grid-3 figure img,.grid-2 figure img{max-height:340px;object-fit:contain}
+figcaption{padding:10px 14px;font-size:.84rem;color:var(--muted);border-top:1px solid var(--border)}
+figcaption b{color:var(--text)}
+
+.timeline{position:relative;margin:0 0 20px;padding-left:26px}
+.timeline:before{content:"";position:absolute;left:8px;top:6px;bottom:6px;width:2px;background:var(--border)}
+.tl{position:relative;margin-bottom:14px}
+.tl:before{content:"";position:absolute;left:-23px;top:7px;width:12px;height:12px;border-radius:50%;background:var(--accent);box-shadow:0 0 0 3px var(--bg)}
+.tl .t{font-family:"JetBrains Mono",monospace;font-size:.8rem;color:var(--muted)}
+
+.topo{background:var(--surface);border:1px solid var(--border);border-radius:var(--radius);padding:12px;margin:0 0 20px;box-shadow:var(--shadow)}
+.topo svg{display:block;width:100%;height:auto}
+.topo text{font-family:Inter,sans-serif;fill:var(--text)}
+.topo .muted{fill:var(--muted)}
+.topo .box{fill:var(--surface-2);stroke:var(--border)}
+.topo .link{stroke:var(--accent);stroke-width:3}
+.topo .acc{fill:var(--accent)}
+
+.oid-tree{font-family:"JetBrains Mono",monospace;font-size:.83rem;line-height:1.55;background:var(--surface);border:1px solid var(--border);border-radius:var(--radius);padding:16px 18px;overflow-x:auto;white-space:pre;margin:0 0 20px}
+.oid-tree .h{color:var(--accent);font-weight:600}
+.oid-tree .m{color:var(--muted)}
+
+footer{border-top:1px solid var(--border);padding:28px 16px;text-align:center;color:var(--muted);font-size:.85rem}
+
+/* lightbox */
+.lb{position:fixed;inset:0;background:rgba(5,10,18,.92);display:none;align-items:center;justify-content:center;z-index:50;padding:56px 16px 70px}
+.lb.open{display:flex}
+.lb img{max-width:100%;max-height:100%;border-radius:8px;box-shadow:0 10px 40px rgba(0,0,0,.5)}
+.lb .cap{position:fixed;left:16px;right:16px;bottom:18px;text-align:center;color:#dfe8f2;font-size:.9rem}
+.lb button{position:fixed;background:rgba(255,255,255,.12);color:#fff;border:0;border-radius:50%;width:44px;height:44px;font-size:22px;cursor:pointer}
+.lb .x{top:12px;right:12px}.lb .prev{left:12px;top:50%}.lb .next{right:12px;top:50%}
+
+/* barra móvil + menú hamburguesa */
+.mbar,.scrim{display:none}
+@media (max-width:960px){
+  html{scroll-padding-top:68px}
+  .mbar{display:flex;align-items:center;justify-content:space-between;gap:12px;position:sticky;top:0;z-index:40;padding:10px 16px;background:color-mix(in srgb,var(--surface) 88%,transparent);-webkit-backdrop-filter:blur(10px);backdrop-filter:blur(10px);border-bottom:1px solid var(--border)}
+  .mbar-title{font-weight:700;font-size:.98rem;color:var(--text);text-decoration:none;white-space:nowrap;overflow:hidden;text-overflow:ellipsis}
+  .burger{flex:none;width:42px;height:42px;border-radius:10px;border:1px solid var(--navy);background:var(--navy);display:inline-flex;flex-direction:column;align-items:center;justify-content:center;gap:5px;cursor:pointer;padding:0}
+  .burger span{display:block;width:18px;height:2px;border-radius:2px;background:#fff;transition:transform .25s,opacity .2s}
+  body.menu-open .burger span:nth-child(1){transform:translateY(7px) rotate(45deg)}
+  body.menu-open .burger span:nth-child(2){opacity:0}
+  body.menu-open .burger span:nth-child(3){transform:translateY(-7px) rotate(-45deg)}
+  .scrim{display:block;position:fixed;inset:0;background:rgba(10,14,8,.45);opacity:0;pointer-events:none;transition:opacity .25s;z-index:44}
+  body.menu-open .scrim{opacity:1;pointer-events:auto}
+  body.menu-open{overflow:hidden}
+
+  .layout{grid-template-columns:1fr;gap:0}
+  nav.toc{position:fixed;top:0;left:0;bottom:0;z-index:45;width:min(300px,84vw);margin:0;max-height:none;border-radius:0 var(--radius) var(--radius) 0;border-left:0;padding:20px 12px;overflow-y:auto;transform:translateX(-105%);transition:transform .28s ease;box-shadow:0 10px 40px rgba(0,0,0,.18)}
+  body.menu-open nav.toc{transform:none}
+  nav.toc a{font-size:.95rem;padding:10px 12px}
+  .grid-3{grid-template-columns:repeat(2,minmax(0,1fr))}
+}
+@media (prefers-reduced-motion:reduce){ nav.toc,.scrim,.burger span{transition:none} }
+@media (max-width:620px){
+  .grid-2,.grid-3{grid-template-columns:1fr}
+  .meta{grid-template-columns:repeat(2,minmax(0,1fr))}
+  section > h2{font-size:1.35rem}
+  .hero{padding:40px 16px 52px}
+}
+@media print{
+  nav.toc,.lb,.mbar,.scrim{display:none!important}
+  .layout{display:block}
+  .hero{-webkit-print-color-adjust:exact;print-color-adjust:exact}
+  section{break-inside:avoid-page}
+  figure{break-inside:avoid}
+}
+</style>
+</head>
+<body>
+
+<div class="mbar">
+  <a href="#" class="mbar-title">Laboratorio Gestor SNMP</a>
+  <button class="burger" id="burger" type="button" aria-controls="toc" aria-expanded="false" aria-label="Abrir menú"><span></span><span></span><span></span></button>
+</div>
+<div class="scrim" id="scrim"></div>
+
+<header class="hero">
+  <div class="hero-inner">
+    <span class="kicker">Redes 2 · Laboratorio práctico</span>
+    <h1>Laboratorio Gestor SNMP</h1>
+    <p class="lead">Gestión de un router <b>Maipu MP2804</b> y un switch <b>Maipu SM3000</b> reales mediante un gestor SNMP capaz de leer (<b>GET / Walk / Poll</b>), recibir notificaciones (<b>Traps</b>) y modificar la red (<b>SET</b>) desde el software.</p>
+    <div class="meta">
+      <div><span>Materia</span><strong>Redes 2</strong></div>
+      <div><span>Docente</span><strong>Ing. Gonzales</strong></div>
+      <div><span>Integrantes</span><strong>Sergio David Cambara Dorbigny</strong><br><strong>[Integrante 2]</strong></div>
+      <div><span>Gestor SNMP</span><strong>iReasoning MIB Browser</strong></div>
+      <div><span>Pruebas realizadas</span><strong>18 de noviembre de 2026</strong></div>
+      <div><span>Entrega y defensa</span><strong>Viernes 20 de noviembre de 2026</strong></div>
+    </div>
+  </div>
+</header>
+
+<div class="layout">
+  <nav class="toc" id="toc" aria-label="Contenido">
+    <h2>Contenido</h2>
+    <div class="links">
+      <a href="#resumen">Resumen</a>
+      <a href="#enunciado">1. Enunciado y objetivo</a>
+      <a href="#gestor">2. Selección del gestor</a>
+      <a href="#topologia">3. Topología y direccionamiento</a>
+      <a href="#agentes">4. Configuración de agentes</a>
+      <a href="#estacion">5. Estación de gestión</a>
+      <a href="#ireasoning">6. Configuración del gestor</a>
+      <a href="#identidad">7. Identidad e interfaces</a>
+      <a href="#flujo">8. Prueba de flujo</a>
+      <a href="#traps">9. Prueba de errores (Traps)</a>
+      <a href="#set">10. Prueba del SET</a>
+      <a href="#mib">11. MIBs y árbol de OIDs</a>
+      <a href="#problemas">12. Problemas y soluciones</a>
+      <a href="#bitacora">13. Bitácora</a>
+      <a href="#conclusiones">14. Conclusiones</a>
+    </div>
+    <button class="theme" id="themeBtn" type="button">Cambiar tema claro/oscuro</button>
+  </nav>
+
+<main>
+
+<!-- ================= RESUMEN ================= -->
+<section id="resumen">
+  <h2>Resumen de resultados</h2>
+  <p class="sub">Los cuatro pasos de verificación exigidos por el docente fueron demostrados sobre el hardware Maipu real.</p>
+  <div class="cards">
+    <div class="card"><div class="step">Paso 1</div><h4>Agentes configurados</h4><p>SNMPv2c en router y switch, comunidades <code>public</code> (RO) y <code>private</code> (RW), traps hacia el gestor.</p><p style="margin-top:10px"><span class="badge">✓ Cumplido</span></p></div>
+    <div class="card"><div class="step">Paso 2</div><h4>Flujo de tráfico</h4><p>Poll cada 5 s sobre <code>ifOutOctets.2</code>: ≈ <b>534 kbps</b> con ráfaga ICMP y ≈ 0 bps sin ella.</p><p style="margin-top:10px"><span class="badge">✓ Cumplido</span></p></div>
+    <div class="card"><div class="step">Paso 3</div><h4>Detección de errores</h4><p>Traps <code>linkDown</code> / <code>linkUp</code> recibidos al desconectar el cable de Ethernet1/2.</p><p style="margin-top:10px"><span class="badge">✓ Cumplido</span></p></div>
+    <div class="card"><div class="step">Paso 4</div><h4>SET desde el software</h4><p><code>ifAdminStatus.2 = 2</code> apagó el puerto, cortó el ping; con <code>= 1</code> se restauró.</p><p style="margin-top:10px"><span class="badge">✓ Cumplido</span></p></div>
+  </div>
+  <div class="callout ok"><strong>Conclusión rápida</strong><p>iReasoning MIB Browser actuó como <b>gestor SNMP real</b>: leyó contadores, recibió notificaciones asíncronas y <b>modificó la configuración del switch</b> (shutdown de una interfaz) sin usar la consola CLI.</p></div>
+</section>
+
+<!-- ================= ENUNCIADO ================= -->
+<section id="enunciado">
+  <h2><span class="num">1</span>Enunciado y objetivo</h2>
+  <p class="sub">Requerimientos publicados en el aula virtual.</p>
+  <p>En grupos de dos personas se debía <b>seleccionar un gestor SNMP</b>, instalarlo en una máquina y <b>gestionar el switch y el router</b> según la topología propuesta, eligiendo libremente el direccionamiento. El docente exige usar <b>gestores reales</b> (que permitan hacer SET y modificar la red) y no simples monitores que solo hacen GET, como PRTG.</p>
+  <div class="grid-3">
+    <figure><button data-lb><img src="img/01-enunciado-topologia.png" alt="Enunciado y topología propuesta" loading="lazy"></button><figcaption><b>Fig. 1.</b> Enunciado y topología propuesta: Laptop «SNMP SERVER» → Switch Fa0/1, Switch Fa0/2 → Router Fa0/0.</figcaption></figure>
+    <figure><button data-lb><img src="img/02-enunciado-pasos.png" alt="Pasos de verificación" loading="lazy"></button><figcaption><b>Fig. 2.</b> Pasos de verificación: agente, flujo, errores y SET.</figcaption></figure>
+    <figure><button data-lb><img src="img/03-enunciado-mib.png" alt="Comandos Maipu y MIBs" loading="lazy"></button><figcaption><b>Fig. 3.</b> Comandos de referencia, traps linkdown/linkup y carga de las MIB de Maipu.</figcaption></figure>
+  </div>
+  <h3>Objetivo</h3>
+  <p>Demostrar el ciclo completo de gestión SNMP sobre equipos físicos Maipu: <b>configurar los agentes</b>, <b>monitorear el tráfico</b> de una interfaz, <b>detectar fallas</b> mediante traps y <b>modificar el estado de la red</b> desde el gestor con una operación SET.</p>
+</section>
+
+<!-- ================= GESTOR ================= -->
+<section id="gestor">
+  <h2><span class="num">2</span>Selección del gestor SNMP</h2>
+  <p class="sub">Por qué iReasoning MIB Browser.</p>
+  <div class="table-wrap"><table>
+    <thead><tr><th>Capacidad</th><th>Monitor SNMP (ej. PRTG básico)</th><th>Gestor SNMP (iReasoning)</th></tr></thead>
+    <tbody>
+      <tr><td>Lectura (GET / GETNEXT / Walk)</td><td>Sí</td><td>Sí</td></tr>
+      <tr><td>Escritura (<b>SET</b>) para modificar la red</td><td>No</td><td><b>Sí</b></td></tr>
+      <tr><td>Recepción de Traps</td><td>Limitada</td><td>Sí (Trap Receiver, UDP 162)</td></tr>
+      <tr><td>Carga de MIB propietarias (Maipu)</td><td>Limitada</td><td>Sí (File → Load MIBs)</td></tr>
+      <tr><td>Consulta periódica de OIDs</td><td>Sí</td><td>Sí (Polls)</td></tr>
+    </tbody>
+  </table></div>
+  <p>Se utilizó la edición <b>Free / Personal</b> de iReasoning MIB Browser en la laptop de gestión. Esta edición incluye GET, GETNEXT, GETBULK, <b>SET</b>, Walk, <b>Polls</b> y <b>Trap Receiver</b>; las herramientas gráficas avanzadas (<i>Port View</i>, <i>Switch Port Mapper</i>, <i>Network Discovery</i>) están reservadas para la versión de pago, por lo que la medición de tráfico se realizó con <b>Polls</b> y el cálculo de bps.</p>
+</section>
+
+<!-- ================= TOPOLOGIA ================= -->
+<section id="topologia">
+  <h2><span class="num">3</span>Topología y direccionamiento</h2>
+  <p class="sub">Red única de gestión y datos 192.168.1.0/24.</p>
+  <div class="topo">
+    <svg viewBox="0 0 900 260" role="img" aria-label="Topología: Laptop gestor 192.168.1.10 conectada a Ethernet1/1 del switch 192.168.1.2; Ethernet1/2 del switch conectada a fastethernet0 del router 192.168.1.1">
+      <line class="link" x1="215" y1="140" x2="365" y2="140"/>
+      <line class="link" x1="535" y1="140" x2="685" y2="140"/>
+      <rect class="box" x="35" y="85" width="180" height="110" rx="12"/>
+      <text x="125" y="120" text-anchor="middle" font-weight="700" font-size="16">Laptop Gestor</text>
+      <text x="125" y="142" text-anchor="middle" class="muted" font-size="13">iReasoning MIB Browser</text>
+      <text x="125" y="170" text-anchor="middle" class="acc mono" font-size="15" font-weight="700">192.168.1.10</text>
+      <rect class="box" x="365" y="85" width="170" height="110" rx="12"/>
+      <text x="450" y="120" text-anchor="middle" font-weight="700" font-size="16">Switch Maipu</text>
+      <text x="450" y="142" text-anchor="middle" class="muted" font-size="13">SM3000-16T · Vlan1</text>
+      <text x="450" y="170" text-anchor="middle" class="acc" font-size="15" font-weight="700">192.168.1.2</text>
+      <rect class="box" x="685" y="85" width="180" height="110" rx="12"/>
+      <text x="775" y="120" text-anchor="middle" font-weight="700" font-size="16">Router Maipu</text>
+      <text x="775" y="142" text-anchor="middle" class="muted" font-size="13">MP2804 · fastethernet0</text>
+      <text x="775" y="170" text-anchor="middle" class="acc" font-size="15" font-weight="700">192.168.1.1</text>
+      <text x="230" y="128" class="muted" font-size="12">Ethernet</text>
+      <text x="350" y="128" text-anchor="end" class="muted" font-size="12">Eth1/1 (ifIndex 1)</text>
+      <text x="550" y="128" class="muted" font-size="12">Eth1/2 (ifIndex 2)</text>
+      <text x="670" y="128" text-anchor="end" class="muted" font-size="12">FE0</text>
+      <text x="290" y="168" text-anchor="middle" class="muted" font-size="12">gestión</text>
+      <text x="610" y="168" text-anchor="middle" class="muted" font-size="12">troncal · puerto del SET</text>
+      <text x="450" y="235" text-anchor="middle" class="muted" font-size="13">Red 192.168.1.0/24 · SNMPv2c · comunidades public (RO) / private (RW) · traps → 192.168.1.10:162</text>
+    </svg>
+  </div>
+  <div class="table-wrap"><table>
+    <thead><tr><th>Dispositivo</th><th>Equivalente en la gráfica</th><th>Interfaz</th><th>IP / Máscara</th><th>Gateway</th><th>Rol</th></tr></thead>
+    <tbody>
+      <tr><td><b>Router Maipu MP2804</b></td><td>Router 1841 Fa0/0</td><td><code>fastethernet0</code></td><td class="num">192.168.1.1/24</td><td>—</td><td>Agente SNMP</td></tr>
+      <tr><td><b>Switch Maipu SM3000-16T</b></td><td>Switch 2950-24</td><td><code>Vlan1</code> (ifIndex 3001)</td><td class="num">192.168.1.2/24</td><td class="num">192.168.1.1</td><td>Agente SNMP</td></tr>
+      <tr><td><b>Laptop ASUS</b></td><td>Laptop-PT «SNMP SERVER» Fa0</td><td>Ethernet → Switch Eth1/1</td><td class="num">192.168.1.10/24</td><td class="num">192.168.1.1</td><td>Gestor + Trap Receiver</td></tr>
+    </tbody>
+  </table></div>
+  <div class="table-wrap"><table>
+    <thead><tr><th>Equipo</th><th>sysDescr (leído por SNMP)</th><th>sysObjectID</th><th>MAC</th></tr></thead>
+    <tbody>
+      <tr><td>Router</td><td>MyPower OS · <b>MP2804</b> versión 6.1.37 (2009)</td><td class="num">1.3.6.1.4.1.<b>5651</b>.1.101.18</td><td class="num">00-01-7A-AD-B1-D4</td></tr>
+      <tr><td>Switch</td><td><b>SM3000-16T</b> (S3016B V2) · software 6.1.94.131</td><td class="num">1.3.6.1.4.1.<b>5651</b>.1.102.70</td><td class="num">00-01-7A-F1-45-D3</td></tr>
+    </tbody>
+  </table></div>
+</section>
+
+<!-- ================= AGENTES ================= -->
+<section id="agentes">
+  <h2><span class="num">4</span>Configuración de los agentes SNMP</h2>
+  <p class="sub">Comandos aplicados en la CLI de los equipos Maipu (paso 1 del docente).</p>
+  <div class="grid-2">
+    <div>
+      <p class="code-title">Router MP2804 — show running-config</p>
+<pre><span class="k">interface</span> fastethernet0
+ ip address <span class="s">192.168.1.1 255.255.255.0</span>
+<span class="p">!</span>
+<span class="k">snmp-server start</span>
+snmp-server view default <span class="s">1.3.6.1</span> include
+snmp-server view TodoElArbol <span class="s">1.3</span> include
+snmp-server community <span class="s">public</span> view default <span class="k">ro</span>
+snmp-server community <span class="s">private</span> view default <span class="k">rw</span>
+snmp-server host <span class="s">192.168.1.10</span> traps community public version 2
+snmp-server enable traps snmp <span class="k">linkdown</span>
+snmp-server enable traps snmp <span class="k">linkup</span>
+<span class="c">! + traps coldstart, warmstart, authentication, ospf, bgp…</span>
+write</pre>
+    </div>
+    <div>
+      <p class="code-title">Switch SM3000 — show running-config</p>
+<pre><span class="k">snmp-server enable</span>
+snmp-server securityip disable
+snmp-server host <span class="s">192.168.1.10</span> v2c public
+snmp-server community <span class="k">ro</span> 0 <span class="s">public</span>
+snmp-server community <span class="k">rw</span> 0 <span class="s">private</span>
+snmp-server community ro 0 RedesMaipuRo
+snmp-server community rw 0 RedesMaipuRw
+snmp-server <span class="k">enable traps</span>
+<span class="p">!</span>
+<span class="k">interface</span> Vlan1
+ ip address <span class="s">192.168.1.2 255.255.255.0</span>
+<span class="p">!</span>
+ip default-gateway <span class="s">192.168.1.1</span>
+write</pre>
+    </div>
+  </div>
+  <div class="grid-3">
+    <figure><button data-lb><img src="img/34-cli-router-config.webp" alt="CLI router" loading="lazy"></button><figcaption><b>Fig. 4.</b> Router: <code>fastethernet0 192.168.1.1</code>, <code>snmp-server start</code>, vistas y comunidades.</figcaption></figure>
+    <figure><button data-lb><img src="img/35-cli-router-traps.webp" alt="CLI router traps" loading="lazy"></button><figcaption><b>Fig. 5.</b> Router: destino de traps <code>192.168.1.10</code> y traps <code>linkdown</code>/<code>linkup</code> habilitados.</figcaption></figure>
+    <figure><button data-lb><img src="img/36-cli-switch-vlan.webp" alt="CLI switch vlan" loading="lazy"></button><figcaption><b>Fig. 6.</b> Switch: <code>interface Vlan1 192.168.1.2</code> e <code>ip default-gateway 192.168.1.1</code>.</figcaption></figure>
+  </div>
+  <h3>Comparativa de sintaxis: guía genérica vs. equipos Maipu reales</h3>
+  <p>Aunque ambos equipos son Maipu, cada firmware usa una sintaxis distinta a la guía del docente. Se resolvió con la ayuda contextual <code>?</code> de la CLI.</p>
+  <div class="table-wrap"><table>
+    <thead><tr><th>Función</th><th>Guía del docente</th><th>Router MP2804</th><th>Switch SM3000</th></tr></thead>
+    <tbody>
+      <tr><td>Activar SNMP</td><td><code>snmp-server agent</code></td><td><code>snmp-server start</code></td><td><code>snmp-server enable</code></td></tr>
+      <tr><td>Comunidad lectura</td><td><code>community public ro</code></td><td><code>community public view default ro</code></td><td><code>community ro 0 public</code></td></tr>
+      <tr><td>Comunidad escritura</td><td><code>community private rw</code></td><td><code>community private view default rw</code></td><td><code>community rw 0 private</code></td></tr>
+      <tr><td>Vista MIB</td><td>—</td><td>Obligatoria (<code>view default 1.3.6.1 include</code>)</td><td>No requiere</td></tr>
+      <tr><td>Traps de enlace</td><td><code>enable traps snmp linkdown linkup</code></td><td><code>enable traps snmp linkdown</code> / <code>linkup</code></td><td><code>enable traps</code></td></tr>
+      <tr><td>Destino de traps</td><td>—</td><td><code>host 192.168.1.10 traps community public version 2</code></td><td><code>host 192.168.1.10 v2c public</code></td></tr>
+    </tbody>
+  </table></div>
+</section>
+
+<!-- ================= ESTACION ================= -->
+<section id="estacion">
+  <h2><span class="num">5</span>Preparación de la estación de gestión</h2>
+  <p class="sub">Laptop ASUS con Windows, adaptador Ethernet Realtek PCIe GbE conectado al puerto Ethernet1/1 del switch.</p>
+  <div class="grid-2">
+    <figure><button data-lb><img src="img/04-ip-laptop-inicial.png" alt="IPv4 de la laptop" loading="lazy"></button><figcaption><b>Fig. 7.</b> Configuración IPv4 estática del adaptador Ethernet (máscara /24, gateway 192.168.1.1). Inicialmente se usó <code>.20</code> y se corrigió a <b>192.168.1.10</b>, el destino de traps configurado en ambos agentes.</figcaption></figure>
+    <figure><button data-lb><img src="img/05-firewall.png" alt="Firewall desactivado" loading="lazy"></button><figcaption><b>Fig. 8.</b> Firewall de Windows Defender desactivado en perfiles privado y público para permitir SNMP (UDP 161) y traps (UDP 162). Nombres de redes personales ocultados.</figcaption></figure>
+  </div>
+  <div class="table-wrap"><table>
+    <thead><tr><th>Verificación</th><th>Resultado</th></tr></thead>
+    <tbody>
+      <tr><td><code>ipconfig</code> → Ethernet</td><td>192.168.1.10 / 255.255.255.0, gateway 192.168.1.1 <span class="badge">OK</span></td></tr>
+      <tr><td><code>ping 192.168.1.2</code> (switch)</td><td>3/3 respuestas, ≈ 2.7 ms <span class="badge">OK</span></td></tr>
+      <tr><td><code>ping 192.168.1.1</code> (router)</td><td>3/3 respuestas, ≈ 2.3 ms <span class="badge">OK</span></td></tr>
+      <tr><td>Tabla ARP</td><td>Dos MAC Maipu distintas (OUI <code>00-01-7A</code>): sin IP duplicada <span class="badge">OK</span></td></tr>
+      <tr><td>VPN (Tailscale) / Wi-Fi</td><td>Tailscale desconectado; Wi-Fi recomendado apagado durante la defensa <span class="badge info">Nota</span></td></tr>
+    </tbody>
+  </table></div>
+</section>
+
+<!-- ================= IREASONING ================= -->
+<section id="ireasoning">
+  <h2><span class="num">6</span>Configuración del gestor iReasoning</h2>
+  <p class="sub">Parámetros del agente en <i>Advanced Properties of SNMP Agent</i>.</p>
+  <div class="grid-2">
+    <figure><button data-lb><img src="img/06-ireasoning-address.png" alt="iReasoning address" loading="lazy"></button><figcaption><b>Fig. 9.</b> iReasoning MIB Browser con el agente <code>192.168.1.2</code> en el campo Address.</figcaption></figure>
+    <figure><button data-lb><img src="img/07-advanced-switch.png" alt="Advanced properties" loading="lazy"></button><figcaption><b>Fig. 10.</b> Agente switch: puerto 161, Read <code>public</code>, Write <code>private</code>, SNMP versión 2.</figcaption></figure>
+  </div>
+  <div class="table-wrap"><table>
+    <thead><tr><th>Parámetro</th><th>Switch</th><th>Router</th></tr></thead>
+    <tbody>
+      <tr><td>Address</td><td class="num">192.168.1.2</td><td class="num">192.168.1.1</td></tr>
+      <tr><td>Port</td><td class="num">161</td><td class="num">161</td></tr>
+      <tr><td>Read / Write Community</td><td><code>public</code> / <code>private</code></td><td><code>public</code> / <code>private</code></td></tr>
+      <tr><td>SNMP Version</td><td>2 (v2c)</td><td>2 (v2c)</td></tr>
+    </tbody>
+  </table></div>
+</section>
+
+<!-- ================= IDENTIDAD ================= -->
+<section id="identidad">
+  <h2><span class="num">7</span>Identidad de los agentes e interfaces</h2>
+  <p class="sub">GET de <code>sysName.0</code> y Walk de <code>ifDescr</code>.</p>
+  <div class="grid-2">
+    <figure><button data-lb><img src="img/08-get-sysname-switch.png" alt="GET sysName switch" loading="lazy"></button><figcaption><b>Fig. 11.</b> GET <code>.1.3.6.1.2.1.1.5.0</code> → <code>sysName.0 = switch</code> (192.168.1.2:161).</figcaption></figure>
+    <figure><button data-lb><img src="img/09-get-sysname-router.png" alt="GET sysName router" loading="lazy"></button><figcaption><b>Fig. 12.</b> GET <code>.1.3.6.1.2.1.1.5.0</code> → <code>sysName.0 = router</code> (192.168.1.1:161).</figcaption></figure>
+  </div>
+  <h3>Identificación de las interfaces del switch</h3>
+  <p>Antes de cualquier SET es indispensable conocer el <b>ifIndex</b> de cada puerto. Se realizó un <b>Walk</b> sobre <code>ifDescr</code> (<code>.1.3.6.1.2.1.2.2.1.2</code>).</p>
+  <div class="grid-2">
+    <figure><button data-lb><img src="img/10-walk-ifdescr.png" alt="Walk ifDescr" loading="lazy"></button><figcaption><b>Fig. 13.</b> Walk: <code>ifDescr.1–16 = Ethernet1/1–1/16</code>, <code>ifDescr.3001 = Vlan1</code>.</figcaption></figure>
+    <figure><button data-lb><img src="img/11-walk-fin-maipu.png" alt="Fin del walk" loading="lazy"></button><figcaption><b>Fig. 14.</b> El Walk recorrió el árbol completo (4094 filas) hasta OIDs privados <code>.1.3.6.1.4.1.5651</code> de Maipu.</figcaption></figure>
+  </div>
+  <div class="table-wrap"><table>
+    <thead><tr><th>ifIndex</th><th>ifDescr</th><th>ifType</th><th>Uso en el laboratorio</th></tr></thead>
+    <tbody>
+      <tr><td class="num">1</td><td>Ethernet1/1</td><td>ethernetCsmacd (6)</td><td>Puerto del gestor — <b>no se apaga nunca</b></td></tr>
+      <tr class="hl"><td class="num">2</td><td><b>Ethernet1/2</b></td><td>ethernetCsmacd (6)</td><td><b>Enlace al router: flujo, traps y SET</b></td></tr>
+      <tr><td class="num">3–16</td><td>Ethernet1/3 … 1/16</td><td>ethernetCsmacd (6)</td><td>Libres</td></tr>
+      <tr><td class="num">3001</td><td>Vlan1</td><td>l3ipvlan (136)</td><td>Interfaz de gestión 192.168.1.2</td></tr>
+    </tbody>
+  </table></div>
+</section>
+
+<!-- ================= FLUJO ================= -->
+<section id="flujo">
+  <h2><span class="num">8</span>Prueba de flujo de tráfico</h2>
+  <p class="sub">Paso 2 del docente: el gestor refleja el aumento de bits por segundo en la interfaz.</p>
+  <h3>8.1 Generación de carga</h3>
+  <p>Desde la laptop se envió una ráfaga ICMP continua con paquetes de 65 000 bytes hacia el router. El tráfico entra al switch por Ethernet1/1 y <b>sale por Ethernet1/2</b> (ifIndex 2) hacia el router.</p>
+<pre>C:\&gt; ping 192.168.1.1 -t -l 65000
+Respuesta desde 192.168.1.1: bytes=65000 tiempo=18ms TTL=255
+...
+Paquetes: enviados = <span class="s">1622</span>, recibidos = <span class="s">1622</span>, perdidos = <span class="s">0</span> (0% perdidos)
+Mínimo = 18ms, Máximo = 31ms, Media = 18ms</pre>
+  <div class="grid-2">
+    <figure><button data-lb><img src="img/13-flujo-ping-65000.png" alt="Ping 65000" loading="lazy"></button><figcaption><b>Fig. 15.</b> <code>ping 192.168.1.1 -t -l 65000</code>: 18–19 ms, TTL=255.</figcaption></figure>
+    <figure><button data-lb><img src="img/12-flujo-get-ifoutoctets.png" alt="GET ifOutOctets" loading="lazy"></button><figcaption><b>Fig. 16.</b> GET manual de <code>ifOutOctets.2</code> (Counter32): 1 364 284 → 2 431 164 bytes.</figcaption></figure>
+  </div>
+  <h3>8.2 Monitoreo automático con Polls</h3>
+  <p>Como la edición gratuita no ofrece gráficas, se creó un <b>Poll</b> que consulta los contadores de la interfaz cada 5 segundos.</p>
+  <div class="grid-3">
+    <figure><button data-lb><img src="img/14-polls-menu.png" alt="Menú Polls" loading="lazy"></button><figcaption><b>Fig. 17.</b> Menú <i>Polls → Create Poll</i>.</figcaption></figure>
+    <figure><button data-lb><img src="img/16-create-poll-agente.png" alt="Create poll agente" loading="lazy"></button><figcaption><b>Fig. 18.</b> Poll <code>Trafico_Ethernet1-2</code>, intervalo 5 s, agente 192.168.1.2.</figcaption></figure>
+    <figure><button data-lb><img src="img/17-create-poll-variables.png" alt="Create poll variables" loading="lazy"></button><figcaption><b>Fig. 19.</b> Variables: <code>ifOutOctets.2</code> (.16.2) e <code>ifInOctets.2</code> (.10.2), operación GET.</figcaption></figure>
+  </div>
+  <div class="grid-2">
+    <figure><button data-lb><img src="img/20-poll-97M.png" alt="Poll con ping" loading="lazy"></button><figcaption><b>Fig. 20.</b> Con ping: <code>ifInOctets.2 = 97 685 100</code>, <code>ifOutOctets.2 = 98 106 716</code>.</figcaption></figure>
+    <figure><button data-lb><img src="img/21-poll-104M.png" alt="Poll con ping 2" loading="lazy"></button><figcaption><b>Fig. 21.</b> ~95 s después: <code>104 086 636</code> / <code>104 519 026</code> (≈ +6.4 MB).</figcaption></figure>
+    <figure><button data-lb><img src="img/22-poll-sin-ping-1.png" alt="Poll sin ping" loading="lazy"></button><figcaption><b>Fig. 22.</b> Ping detenido: <code>ifInOctets.2 = 108 487 772</code> queda congelado.</figcaption></figure>
+    <figure><button data-lb><img src="img/23-poll-sin-ping-2.png" alt="Poll sin ping 2" loading="lazy"></button><figcaption><b>Fig. 23.</b> Sin ping: <code>ifOutOctets.2</code> solo sube +157 B (tráfico de control).</figcaption></figure>
+  </div>
+  <h3>8.3 Cálculo de la tasa</h3>
+  <p>Los contadores <code>ifInOctets</code>/<code>ifOutOctets</code> son <i>Counter32</i> acumulativos; la tasa se obtiene de la diferencia entre dos lecturas: <b>bps = (V₂ − V₁) × 8 / Δt</b>.</p>
+  <div class="table-wrap"><table>
+    <thead><tr><th>Estado</th><th>Lectura 1 (ifOutOctets.2)</th><th>Lectura 2</th><th>Δt</th><th>Δ bytes</th><th>Tasa</th></tr></thead>
+    <tbody>
+      <tr class="hl"><td><b>Con ping</b></td><td class="num">91 637 316</td><td class="num">91 970 937</td><td class="num">5 s</td><td class="num">333 621</td><td class="num"><b>≈ 533.8 kbps</b></td></tr>
+      <tr class="hl"><td><b>Con ping</b> (Poll)</td><td class="num">98 106 716</td><td class="num">104 519 026</td><td class="num">≈ 95 s</td><td class="num">6 412 310</td><td class="num">≈ 540 kbps</td></tr>
+      <tr><td>Sin ping</td><td class="num">108 930 311</td><td class="num">108 930 468</td><td class="num">5 s</td><td class="num">157</td><td class="num">≈ 0.25 kbps</td></tr>
+      <tr><td>Sin ping</td><td class="num">108 930 468</td><td class="num">108 930 939</td><td class="num">5 s</td><td class="num">471</td><td class="num">≈ 0.75 kbps</td></tr>
+    </tbody>
+  </table></div>
+  <div class="callout"><strong>Interpretación</strong><p>Un ping de 65 000 bytes por segundo equivale a ≈ 65 KB/s ≈ <b>520 kbps</b>, coherente con los ≈ 534 kbps medidos (incluye cabeceras IP/Ethernet de los fragmentos). <code>ifInOctets.2</code> crece casi igual porque el router devuelve cada eco del mismo tamaño. Al detener el ping la tasa cae a prácticamente 0 bps: el gestor refleja el flujo en tiempo real.</p></div>
+</section>
+
+<!-- ================= TRAPS ================= -->
+<section id="traps">
+  <h2><span class="num">9</span>Prueba de detección de errores (Traps)</h2>
+  <p class="sub">Paso 3 del docente: desconexión abrupta del cable de Ethernet1/2.</p>
+  <p>Con <b>Tools → Trap Receiver</b> (UDP 162) abierto en el gestor, se desconectó el cable del puerto 2 del switch (enlace al router) y se volvió a conectar.</p>
+  <div class="grid-2">
+    <figure><button data-lb><img src="img/24-trap-receiver-menu.png" alt="Menú Trap Receiver" loading="lazy"></button><figcaption><b>Fig. 24.</b> <i>Tools → Trap Receiver</i> (Ctrl+I), disponible en la edición gratuita.</figcaption></figure>
+    <figure><button data-lb><img src="img/25-traps-cable.png" alt="Traps recibidos" loading="lazy"></button><figcaption><b>Fig. 25.</b> Traps recibidos: linkDown (.5.3) del switch 21:47:00, linkUp (.5.4) del switch 21:47:36 y del router 21:47:39.</figcaption></figure>
+  </div>
+  <div class="timeline">
+    <div class="tl"><span class="t">21:47:00</span><br><b>linkDown</b> <code>.1.3.6.1.6.3.1.1.5.3</code> desde <b>switch 192.168.1.2</b> — cable de Ethernet1/2 desconectado.</div>
+    <div class="tl"><span class="t">21:47:36</span><br><b>linkUp</b> <code>.1.3.6.1.6.3.1.1.5.4</code> desde <b>switch 192.168.1.2</b> — cable reconectado.</div>
+    <div class="tl"><span class="t">21:47:39</span><br><b>linkUp</b> <code>.1.3.6.1.6.3.1.1.5.4</code> desde <b>router 192.168.1.1</b> — fastethernet0 vuelve a subir.</div>
+  </div>
+  <div class="callout warn"><strong>¿Por qué no llegó el linkDown del router?</strong><p>El router envía sus traps a 192.168.1.10 <b>a través del mismo cable desconectado</b> (FE0 → switch Eth1/2 → laptop). Mientras el enlace está caído, ese trap no tiene camino al gestor y, al ser UDP, se pierde sin reintento. El switch sí pudo avisar porque la laptop está conectada directamente a su puerto Ethernet1/1. El linkUp del router llega ~3 s después del switch por la negociación del enlace y la resolución ARP.</p></div>
+  <p>Los OID recibidos son los traps genéricos estándar de SNMPv2 (<code>SNMPv2-MIB::snmpTraps</code>, RFC 3418): <code>.5.3 = linkDown</code> y <code>.5.4 = linkUp</code>. A diferencia del GET/Poll (modelo <i>pull</i>), los traps son <b>notificaciones push</b>: el agente avisa al gestor sin que este pregunte.</p>
+</section>
+
+<!-- ================= SET ================= -->
+<section id="set">
+  <h2><span class="num">10</span>Prueba del SET: apagado remoto de una interfaz</h2>
+  <p class="sub">Paso 4 del docente: shutdown administrativo desde el software, sin tocar la consola del switch.</p>
+  <div class="callout"><strong>Objeto utilizado</strong><p><code>ifAdminStatus.2</code> = <code>.1.3.6.1.2.1.2.2.1.7.2</code> (IF-MIB, <i>read-write</i>). Valores: <b>1 = up</b>, <b>2 = down</b>. Se eligió el ifIndex 2 (Ethernet1/2, hacia el router) para no perder la gestión del switch, que se realiza por Ethernet1/1.</p></div>
+
+  <h3>10.1 Estado inicial</h3>
+  <div class="grid-2">
+    <figure><button data-lb><img src="img/26-set-get-antes.png" alt="GET antes" loading="lazy"></button><figcaption><b>Fig. 26.</b> GET <code>ifAdminStatus.2 = up (1)</code> antes del SET.</figcaption></figure>
+    <figure><button data-lb><img src="img/27-set-ping-antes.png" alt="Ping antes" loading="lazy"></button><figcaption><b>Fig. 27.</b> <code>ping 192.168.1.1 -t</code> respondiendo (1–3 ms, TTL=255).</figcaption></figure>
+  </div>
+  <h3>10.2 SET = 2 (down)</h3>
+  <div class="grid-3">
+    <figure><button data-lb><img src="img/28-set-dialogo.png" alt="Diálogo SET" loading="lazy"></button><figcaption><b>Fig. 28.</b> Diálogo SNMP SET: OID <code>.1.3.6.1.2.1.2.2.1.7.2</code>, Integer, valor <b>2</b>.</figcaption></figure>
+    <figure><button data-lb><img src="img/29-set-ping-corte.png" alt="Ping cortado" loading="lazy"></button><figcaption><b>Fig. 29.</b> El ping pasa a «Tiempo de espera agotado»: el tráfico se cortó.</figcaption></figure>
+    <figure><button data-lb><img src="img/30-set-trap-linkdown.png" alt="Trap linkDown por SET" loading="lazy"></button><figcaption><b>Fig. 30.</b> El switch emite un linkDown (.5.3) a las 21:58:43 provocado por el SET.</figcaption></figure>
+  </div>
+  <h3>10.3 Verificación y restauración (SET = 1)</h3>
+  <div class="grid-3">
+    <figure><button data-lb><img src="img/31-set-get-down.png" alt="GET down" loading="lazy"></button><figcaption><b>Fig. 31.</b> GET posterior: <code>ifAdminStatus.2 = down (2)</code>.</figcaption></figure>
+    <figure><button data-lb><img src="img/32-set-ping-recupera.png" alt="Ping recuperado" loading="lazy"></button><figcaption><b>Fig. 32.</b> Tras <code>SET = 1</code> el ping vuelve a responder (2–3 ms).</figcaption></figure>
+    <figure><button data-lb><img src="img/33-set-get-up.png" alt="GET up" loading="lazy"></button><figcaption><b>Fig. 33.</b> Ciclo completo en la tabla: up (1) → down (2) → up (1).</figcaption></figure>
+  </div>
+  <div class="table-wrap"><table>
+    <thead><tr><th>#</th><th>Operación</th><th>Respuesta del gestor</th><th>Efecto en la red</th></tr></thead>
+    <tbody>
+      <tr><td class="num">1</td><td>GET <code>ifAdminStatus.2</code></td><td><code>up (1)</code></td><td>Ping al router responde</td></tr>
+      <tr class="hl"><td class="num">2</td><td><b>SET</b> <code>ifAdminStatus.2</code> = Integer 2</td><td>Aceptado (comunidad <code>private</code>)</td><td><b>Ping cortado</b> · trap linkDown 21:58:43</td></tr>
+      <tr><td class="num">3</td><td>GET <code>ifAdminStatus.2</code></td><td><code>down (2)</code></td><td><code>ifOperStatus.2 = 2</code></td></tr>
+      <tr class="hl"><td class="num">4</td><td><b>SET</b> <code>ifAdminStatus.2</code> = Integer 1</td><td>Aceptado</td><td><b>Ping restaurado</b></td></tr>
+      <tr><td class="num">5</td><td>GET de verificación</td><td><code>up (1)</code></td><td><code>ifOperStatus.2 = 1</code></td></tr>
+    </tbody>
+  </table></div>
+  <div class="callout ok"><strong>Resultado</strong><p>La interfaz se apagó y se encendió <b>únicamente desde el software</b>, el tráfico se cortó y se restableció, y el agente notificó el cambio con un trap: se demuestra el funcionamiento de un <b>gestor SNMP en toda la extensión de la palabra</b>.</p></div>
+</section>
+
+<!-- ================= MIB ================= -->
+<section id="mib">
+  <h2><span class="num">11</span>MIBs de Maipu y árbol de OIDs</h2>
+  <p class="sub">Origen de cada OID utilizado y MIBs propietarias cargadas en el gestor.</p>
+  <h3>11.1 ¿De dónde salen los OIDs?</h3>
+  <p>Cada OID es una ruta en el <b>árbol MIB</b> estandarizado. Los objetos escalares terminan en <code>.0</code>; los de tabla terminan en el <b>ifIndex</b> de la interfaz.</p>
+<div class="oid-tree"><span class="h">.1 iso</span> <span class="m">→ .3 org → .6 dod → .1 internet</span>
+ ├─ <span class="h">.2 mgmt → .1 mib-2</span>                       <span class="m">(RFC 1213 · MIB-II)</span>
+ │   ├─ .1 system
+ │   │   ├─ .1 sysDescr .0
+ │   │   ├─ .2 sysObjectID .0
+ │   │   └─ .5 sysName .0          ⇒ <span class="h">.1.3.6.1.2.1.1.5.0</span>
+ │   └─ .2 interfaces → .2 ifTable → .1 ifEntry   <span class="m">(RFC 2863 · IF-MIB)</span>
+ │       ├─ .2  ifDescr       .&lt;ifIndex&gt;
+ │       ├─ .7  ifAdminStatus .2  ⇒ <span class="h">.1.3.6.1.2.1.2.2.1.7.2</span>  <span class="m">(read-write → SET)</span>
+ │       ├─ .8  ifOperStatus  .2
+ │       ├─ .10 ifInOctets    .2  ⇒ <span class="h">.1.3.6.1.2.1.2.2.1.10.2</span>
+ │       └─ .16 ifOutOctets   .2  ⇒ <span class="h">.1.3.6.1.2.1.2.2.1.16.2</span>
+ ├─ <span class="h">.4 private → .1 enterprises → .5651 maipu</span>   <span class="m">(MAIPU-SMI)</span>
+ │   ├─ .1 mpProducts   ⇐ sysObjectID router 5651.1.101.18 · switch 5651.1.102.70
+ │   └─ .3 mpMgmt → .20 mpios                        <span class="m">(MPIOS-MIB)</span>
+ └─ <span class="h">.6 snmpV2 → .3.1.1.5 snmpTraps</span>             <span class="m">(RFC 3418)</span>
+     ├─ .3 linkDown    ⇒ <span class="h">.1.3.6.1.6.3.1.1.5.3</span>
+     └─ .4 linkUp      ⇒ <span class="h">.1.3.6.1.6.3.1.1.5.4</span></div>
+  <h3>11.2 MIBs propietarias de Maipu</h3>
+  <p>Maipu no publica sus MIBs en su sitio. Se obtuvieron del repositorio open source de LibreNMS (<code>mibs/maipu</code>) y se cargan en iReasoning con <b>File → Load MIBs</b>, primero <code>MAIPU-SMI</code> y luego <code>MPIOS-MIB</code>.</p>
+  <div class="table-wrap"><table>
+    <thead><tr><th>Archivo</th><th>Tamaño</th><th>Contenido</th></tr></thead>
+    <tbody>
+      <tr><td><code>MAIPU-SMI</code></td><td class="num">3.5 KB</td><td>Raíz <code>maipu ::= { enterprises 5651 }</code> y sub-ramas <code>mpProducts</code>, <code>mpMgmt</code>, <code>mpMgmt2</code></td></tr>
+      <tr><td><code>MPIOS-MIB</code></td><td class="num">81 KB</td><td>Sistema MyPower: memoria (<code>sysMemory</code>), tareas, CPU (<code>sysCpu</code>) y temperatura</td></tr>
+    </tbody>
+  </table></div>
+  <div class="table-wrap"><table>
+    <thead><tr><th>Agente</th><th>Objeto Maipu</th><th>OID</th><th>Resultado</th></tr></thead>
+    <tbody>
+      <tr><td>Router</td><td><code>numBytesFree.0</code> (memoria libre)</td><td class="num">.1.3.6.1.4.1.5651.3.20.1.1.1.1.0</td><td class="num"><b>64 067 960 bytes</b> <span class="badge">OK</span></td></tr>
+      <tr><td>Router</td><td><code>numBytesAlloc.0</code> (memoria asignada)</td><td class="num">.1.3.6.1.4.1.5651.3.20.1.1.1.3.0</td><td class="num"><b>278 556 bytes</b> <span class="badge">OK</span></td></tr>
+      <tr><td>Switch</td><td><code>numBytesFree.0</code></td><td class="num">mismo OID</td><td>Sin respuesta: el SM3000 usa otra rama propietaria <span class="badge info">Nota</span></td></tr>
+    </tbody>
+  </table></div>
+</section>
+
+<!-- ================= PROBLEMAS ================= -->
+<section id="problemas">
+  <h2><span class="num">12</span>Problemas encontrados y soluciones</h2>
+  <p class="sub">Incidencias reales durante la práctica.</p>
+  <div class="table-wrap"><table>
+    <thead><tr><th>Problema</th><th>Causa</th><th>Solución</th></tr></thead>
+    <tbody>
+      <tr><td>Los comandos de la guía no eran aceptados</td><td>Cada firmware Maipu tiene su propia sintaxis</td><td>Ayuda contextual <code>?</code> en la CLI; comparativa documentada (sección 4)</td></tr>
+      <tr><td>El gestor no obtenía respuesta</td><td>Notas previas usaban la red <code>192.168.10.0/24</code>; los equipos estaban en <code>192.168.1.0/24</code></td><td>Corregir la IP del agente en iReasoning y la IP de la laptop</td></tr>
+      <tr><td>Los traps no llegarían a la laptop</td><td>Laptop en <code>.20</code>, traps configurados hacia <code>.10</code></td><td>Cambiar la laptop a <code>192.168.1.10</code></td></tr>
+      <tr><td>Traps bloqueados</td><td>Firewall de Windows activo (UDP 162)</td><td>Desactivar el firewall durante la práctica</td></tr>
+      <tr><td>Sin opción <i>Graph</i></td><td>Funciones gráficas solo en la edición de pago</td><td>Polls cada 5 s + cálculo de bps</td></tr>
+      <tr><td>El Walk recorría todo el árbol (4094 filas)</td><td>Comportamiento de GETNEXT al terminar la tabla</td><td>Detener con el botón ✖ y limpiar la tabla</td></tr>
+      <tr><td>Tras el SET, un GET seguía mostrando <code>down</code></td><td>Se ejecutó Get en vez de Set al restaurar</td><td>Seleccionar explícitamente <b>Set</b> con valor 1</td></tr>
+    </tbody>
+  </table></div>
+</section>
+
+<!-- ================= BITACORA ================= -->
+<section id="bitacora">
+  <h2><span class="num">13</span>Bitácora de la práctica</h2>
+  <p class="sub">18 de noviembre de 2026.</p>
+  <div class="table-wrap"><table>
+    <thead><tr><th>#</th><th>Acción</th><th>Resultado</th></tr></thead>
+    <tbody>
+      <tr><td class="num">1</td><td>Auditoría de <code>show running-config</code> en router y switch</td><td>Agentes correctos en 192.168.1.0/24; traps hacia 192.168.1.10</td></tr>
+      <tr><td class="num">2</td><td>IP de la laptop (de .20 a .10) y firewall desactivado</td><td>Ping 100 % a ambos agentes</td></tr>
+      <tr><td class="num">3</td><td>GET <code>sysName.0</code> al switch</td><td><code>switch</code> ✓</td></tr>
+      <tr><td class="num">4</td><td>Walk <code>ifDescr</code></td><td>Ethernet1/2 = ifIndex 2 ✓</td></tr>
+      <tr><td class="num">5</td><td>Poll <code>Trafico_Ethernet1-2</code> + ping 65000 B</td><td>≈ 534 kbps; ≈ 0 sin ping ✓</td></tr>
+      <tr><td class="num">6</td><td>Trap Receiver + desconexión de cable</td><td>linkDown/linkUp switch, linkUp router ✓</td></tr>
+      <tr><td class="num">7</td><td>SET <code>ifAdminStatus.2</code> = 2 y = 1</td><td>Ping cortado y restaurado; trap linkDown ✓</td></tr>
+      <tr><td class="num">8</td><td>GET <code>sysName.0</code> al router</td><td><code>router</code> ✓</td></tr>
+      <tr><td class="num">9</td><td>MIBs Maipu (MAIPU-SMI, MPIOS-MIB)</td><td>Router responde <code>numBytesFree.0</code> ✓</td></tr>
+    </tbody>
+  </table></div>
+</section>
+
+<!-- ================= CONCLUSIONES ================= -->
+<section id="conclusiones">
+  <h2><span class="num">14</span>Conclusiones</h2>
+  <ul>
+    <li><b>SNMP permite gestionar equipos heterogéneos</b> con un mismo gestor: el router MP2804 y el switch SM3000 respondieron con las MIB estándar (MIB-II / IF-MIB) aunque su CLI usa sintaxis distintas.</li>
+    <li><b>Un gestor no es un monitor</b>: además de leer contadores, iReasoning modificó el estado de la red con un SET sobre <code>ifAdminStatus</code>, equivalente a un <code>shutdown</code> remoto.</li>
+    <li><b>Los contadores son acumulativos</b>: la tasa en bps se obtiene por diferencias entre lecturas; la medición (≈ 534 kbps) coincidió con la carga teórica del ping (≈ 520 kbps).</li>
+    <li><b>Los traps complementan al polling</b>: avisan de inmediato, pero dependen de que exista un camino hacia el gestor (el linkDown del router se perdió por viajar por el enlace caído).</li>
+    <li><b>La seguridad importa</b>: la comunidad de escritura <code>private</code> otorga control total sobre los equipos; en producción se recomienda SNMPv3 con autenticación y cifrado, y restringir las IP de gestión.</li>
+  </ul>
+</section>
+
+</main>
+</div>
+
+<footer>
+  Laboratorio Gestor SNMP · Redes 2 · Router Maipu MP2804 · Switch Maipu SM3000 · iReasoning MIB Browser · Noviembre 2026
+</footer>
+
+<div class="lb" id="lb" role="dialog" aria-modal="true" aria-label="Imagen ampliada">
+  <button class="x" type="button" aria-label="Cerrar">✕</button>
+  <button class="prev" type="button" aria-label="Anterior">‹</button>
+  <img alt="">
+  <button class="next" type="button" aria-label="Siguiente">›</button>
+  <div class="cap"></div>
+</div>
+
+<script>
+(function(){
+  // lightbox
+  var figs=[].slice.call(document.querySelectorAll('figure'));
+  var lb=document.getElementById('lb'), img=lb.querySelector('img'), cap=lb.querySelector('.cap'), i=0;
+  function show(n){ i=(n+figs.length)%figs.length; var f=figs[i]; img.src=f.querySelector('img').src; img.alt=f.querySelector('img').alt; cap.textContent=f.querySelector('figcaption').textContent; lb.classList.add('open'); }
+  figs.forEach(function(f,n){ f.querySelector('button').addEventListener('click',function(){show(n)}); });
+  lb.querySelector('.x').onclick=function(){lb.classList.remove('open')};
+  lb.querySelector('.prev').onclick=function(e){e.stopPropagation();show(i-1)};
+  lb.querySelector('.next').onclick=function(e){e.stopPropagation();show(i+1)};
+  lb.addEventListener('click',function(e){ if(e.target===lb) lb.classList.remove('open'); });
+  document.addEventListener('keydown',function(e){ if(!lb.classList.contains('open'))return; if(e.key==='Escape')lb.classList.remove('open'); if(e.key==='ArrowLeft')show(i-1); if(e.key==='ArrowRight')show(i+1); });
+
+  // menú hamburguesa (móvil)
+  var burger=document.getElementById('burger'), scrim=document.getElementById('scrim'), body=document.body;
+  function setMenu(open){ body.classList.toggle('menu-open',open); burger.setAttribute('aria-expanded',open); burger.setAttribute('aria-label',open?'Cerrar menú':'Abrir menú'); }
+  burger.addEventListener('click',function(){ setMenu(!body.classList.contains('menu-open')); });
+  scrim.addEventListener('click',function(){ setMenu(false); });
+  document.querySelectorAll('nav.toc a').forEach(function(a){ a.addEventListener('click',function(){ setMenu(false); }); });
+  document.addEventListener('keydown',function(e){ if(e.key==='Escape' && body.classList.contains('menu-open')) setMenu(false); });
+  matchMedia('(min-width:961px)').addEventListener('change',function(m){ if(m.matches) setMenu(false); });
+
+  // active section in TOC
+  var links=[].slice.call(document.querySelectorAll('nav.toc a'));
+  if('IntersectionObserver' in window){
+    var obs=new IntersectionObserver(function(es){ es.forEach(function(e){ if(e.isIntersecting){ links.forEach(function(a){ a.classList.toggle('active',a.getAttribute('href')==='#'+e.target.id); }); } }); },{rootMargin:'-20% 0px -70% 0px'});
+    document.querySelectorAll('main section').forEach(function(s){obs.observe(s)});
+  }
+
+  // theme toggle
+  var root=document.documentElement, key='snmp-theme';
+  try{ var t=localStorage.getItem(key); if(t) root.setAttribute('data-theme',t); }catch(e){}
+  document.getElementById('themeBtn').addEventListener('click',function(){
+    var dark=root.getAttribute('data-theme')==='dark' || (!root.getAttribute('data-theme') && matchMedia('(prefers-color-scheme: dark)').matches);
+    var next=dark?'light':'dark'; root.setAttribute('data-theme',next);
+    try{ localStorage.setItem(key,next); }catch(e){}
+  });
+})();
+</script>
+</body>
+</html>
